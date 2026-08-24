@@ -95,7 +95,7 @@ function criarEmbedSucesso(guild, descricao, cor) {
     .setTimestamp();
 
   if (iconeServidor) {
-    embed.setImage(iconeServidor);
+    embed.setThumbnail(iconeServidor);
   }
 
   return embed;
@@ -212,7 +212,7 @@ client.on("messageCreate", async (message) => {
       await membroAlvo.roles.add(cargo);
       return responderEmbedTemporario(
         message,
-        `✅ Cargo **${cargo.name}** adicionado a ${membroAlvo}.`
+        `✅ Cargo **${cargo.name}** adicionado a ${membroAlvo}.\n\n⚠️ Agora você tem mais responsabilidade dentro do servidor — use o cargo com respeito e siga as regras.`
       );
     }
 
