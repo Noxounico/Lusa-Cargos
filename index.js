@@ -8,6 +8,7 @@ const {
   GatewayIntentBits,
   Partials,
   PermissionsBitField,
+  EmbedBuilder,
 } = require("discord.js");
 require("dotenv").config();
 
@@ -64,6 +65,44 @@ function encontrarCargo(guild, texto) {
 async function responderTemporario(message, conteudo) {
   try {
     const resposta = await message.channel.send(conteudo);
+    setTimeout(() => {
+      resposta.delete().catch(() => {});
+    }, SEGUNDOS_ATE_APAGAR_RESPOSTA * 1000);
+  } catch (erro) {
+    console.error("Erro ao enviar/apagar resposta:", erro);
+  }
+}
+
+// ------------------------------------------------------------
+// Cria um embed de sucesso com o ícone do servidor e um aviso
+// de que a mensagem vai ser apagada automaticamente.
+// ------------------------------------------------------------
+function criarEmbedSucesso(guild, descricao, cor) {
+  const iconeServidor = guild.iconURL({ size: 256 });
+
+  const embed = new EmbedBuilder()
+    .setColor(cor)
+    .setDescription(descricao)
+    .setFooter({
+      text: `⏳ Esta mensagem será excluída em ${SEGUNDOS_ATE_APAGAR_RESPOSTA}s`,
+      iconURL: iconeServidor || undefined,
+    });
+
+  if (iconeServidor) {
+    embed.setThumbnail(iconeServidor);
+  }
+
+  return embed;
+}
+
+// ------------------------------------------------------------
+// Envia um embed de sucesso e apaga-o automaticamente ao fim
+// de alguns segundos.
+// ------------------------------------------------------------
+async function responderEmbedTemporario(message, descricao, cor = 0x57f287) {
+  try {
+    const embed = criarEmbedSucesso(message.guild, descricao, cor);
+    const resposta = await message.channel.send({ embeds: [embed] });
     setTimeout(() => {
       resposta.delete().catch(() => {});
     }, SEGUNDOS_ATE_APAGAR_RESPOSTA * 1000);
@@ -158,18 +197,33 @@ client.on("messageCreate", async (message) => {
   try {
     if (comando === "addcargo") {
       if (membroAlvo.roles.cache.has(cargo.id)) {
-        return responderTemporario(message, `ℹ️ ${membroAlvo} já tem o cargo **${cargo.name}**.`);
+        return responderEmbedTemporario(
+          message,
+          `ℹ️ ${membroAlvo} já tem o cargo **${cargo.name}**.`,
+          0xfee75c
+        );
       }
       await membroAlvo.roles.add(cargo);
-      return responderTemporario(message, `✅ Cargo **${cargo.name}** adicionado a ${membroAlvo}.`);
+      return responderEmbedTemporario(
+        message,
+        `✅ Cargo **${cargo.name}** adicionado a ${membroAlvo}.`
+      );
     }
 
     if (comando === "remcargo") {
       if (!membroAlvo.roles.cache.has(cargo.id)) {
-        return responderTemporario(message, `ℹ️ ${membroAlvo} não tem o cargo **${cargo.name}**.`);
+        return responderEmbedTemporario(
+          message,
+          `ℹ️ ${membroAlvo} não tem o cargo **${cargo.name}**.`,
+          0xfee75c
+        );
       }
       await membroAlvo.roles.remove(cargo);
-      return responderTemporario(message, `✅ Cargo **${cargo.name}** removido de ${membroAlvo}.`);
+      return responderEmbedTemporario(
+        message,
+        `✅ Cargo **${cargo.name}** removido de ${membroAlvo}.`,
+        0xed4245
+      );
     }
   } catch (erro) {
     console.error(erro);
