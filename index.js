@@ -78,18 +78,24 @@ async function responderTemporario(message, conteudo) {
 // de que a mensagem vai ser apagada automaticamente.
 // ------------------------------------------------------------
 function criarEmbedSucesso(guild, descricao, cor) {
-  const iconeServidor = guild.iconURL({ size: 256 });
+  const iconeServidor = guild.iconURL({ size: 512 });
 
   const embed = new EmbedBuilder()
     .setColor(cor)
-    .setDescription(descricao)
+    .setAuthor({
+      name: guild.name,
+      iconURL: iconeServidor || undefined,
+    })
+    .setTitle("Gestão de Cargos")
+    .setDescription(`### ${descricao}`)
     .setFooter({
       text: `⏳ Esta mensagem será excluída em ${SEGUNDOS_ATE_APAGAR_RESPOSTA}s`,
       iconURL: iconeServidor || undefined,
-    });
+    })
+    .setTimestamp();
 
   if (iconeServidor) {
-    embed.setThumbnail(iconeServidor);
+    embed.setImage(iconeServidor);
   }
 
   return embed;
