@@ -21,7 +21,7 @@ const SEGUNDOS_ATE_APAGAR_RESPOSTA = 5;
 // (nem que seja para si próprios). Quem não tiver nenhum destes
 // cargos fica automaticamente bloqueado. O dono do servidor está
 // sempre isento desta regra.
-const CARGOS_AUTORIZADOS = ["Coordenador", "ADM", "Auxiliar", "Resp.Pastas", "Moderador", "LIDERANÇA", "Diretor Geral", "CEO"];
+const CARGOS_AUTORIZADOS = ["CEO", "LIDERANÇA", "Diretor Geral", "Coordenador", "Resp.Pastas", "ADM", "Auxiliar", "Moderador",];
 
 const client = new Client({
   intents: [
