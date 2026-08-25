@@ -17,6 +17,12 @@ const PREFIX = "!";
 // Quantos segundos a resposta do bot fica visível antes de se apagar sozinha
 const SEGUNDOS_ATE_APAGAR_RESPOSTA = 5;
 
+// Nomes dos ÚNICOS cargos autorizados a usar !addcargo / !remcargo
+// (nem que seja para si próprios). Quem não tiver nenhum destes
+// cargos fica automaticamente bloqueado. O dono do servidor está
+// sempre isento desta regra.
+const CARGOS_AUTORIZADOS = ["Coordenador", "ADM", "Auxiliar", "Resp.Pastas", "Moderador", "LIDERANÇA", "Diretor Geral", "CEO"];
+
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -38,6 +44,9 @@ client.once("ready", () => {
 // ------------------------------------------------------------
 function encontrarCargo(guild, texto) {
   if (!texto) return null;
+
+  // Remove caracteres invisíveis que às vezes vêm ao colar (zero-width, etc.)
+  texto = texto.replace(/[\u200B-\u200D\uFEFF]/g, "").trim();
 
   // Menção de cargo: <@&123456789>
   const mencaoMatch = texto.match(/^<@&(\d+)>$/);
@@ -131,6 +140,22 @@ client.on("messageCreate", async (message) => {
   message.delete().catch(() => {});
 
   // --------------------------------------------------------
+  // Só quem tiver um dos CARGOS_AUTORIZADOS pode usar o
+  // comando. O dono do servidor está sempre isento.
+  // --------------------------------------------------------
+  const ehDonoServidor = message.guild.ownerId === message.author.id;
+  const temCargoAutorizado = message.member.roles.cache.some((r) =>
+    CARGOS_AUTORIZADOS.some((nome) => nome.toLowerCase() === r.name.toLowerCase())
+  );
+
+  if (!ehDonoServidor && !temCargoAutorizado) {
+    return responderTemporario(
+      message,
+      "❌ O teu cargo não tem permissão para usar este comando."
+    );
+  }
+
+  // --------------------------------------------------------
   // Permissões do BOT: precisa de "Gerir Cargos"
   // --------------------------------------------------------
   const botMember = message.guild.members.me;
@@ -177,27 +202,22 @@ client.on("messageCreate", async (message) => {
   const ehDono = message.guild.ownerId === message.author.id;
 
   if (mencaoUtilizador) {
-    // Só quem tem "Gerir Cargos" pode atribuir a outra pessoa
-    if (!message.member.permissions.has(PermissionsBitField.Flags.ManageRoles)) {
+    // ----------------------------------------------------
+    // Hierarquia do UTILIZADOR: para atribuir/remover um
+    // cargo a OUTRA pessoa, o cargo tem de estar ABAIXO do
+    // cargo mais alto de quem executa o comando. Não é
+    // exigida a permissão "Gerir Cargos" do Discord — basta
+    // teres um cargo acima do que estás a dar (ex: ADM).
+    // O dono do servidor está sempre isento.
+    // ----------------------------------------------------
+    if (!ehDono && cargo.position >= message.member.roles.highest.position) {
       return responderTemporario(
         message,
-        "❌ Só podes atribuir cargos a outras pessoas se tiveres permissão de **Gerir Cargos**."
+        "❌ Não podes atribuir/remover a outra pessoa um cargo igual ou superior ao teu cargo mais alto."
       );
     }
-    membroAlvo = mencaoUtilizador;
-  }
 
-  // --------------------------------------------------------
-  // Hierarquia do UTILIZADOR que está a executar o comando:
-  // ninguém (exceto o dono do servidor) pode atribuir/remover
-  // um cargo igual ou superior ao seu próprio cargo mais alto.
-  // Isto aplica-se mesmo quando o alvo é o próprio utilizador.
-  // --------------------------------------------------------
-  if (!ehDono && cargo.position >= message.member.roles.highest.position) {
-    return responderTemporario(
-      message,
-      "❌ Não podes atribuir/remover um cargo igual ou superior ao teu cargo mais alto."
-    );
+    membroAlvo = mencaoUtilizador;
   }
 
   try {
