@@ -229,21 +229,6 @@ client.on("messageCreate", async (message) => {
 
   if (mencaoUtilizador) {
     // ----------------------------------------------------
-    // Hierarquia do UTILIZADOR: para atribuir/remover um
-    // cargo a OUTRA pessoa, o cargo tem de estar ABAIXO do
-    // cargo mais alto de quem executa o comando. Não é
-    // exigida a permissão "Gerir Cargos" do Discord — basta
-    // teres um cargo acima do que estás a dar (ex: ADM).
-    // O dono do servidor está sempre isento.
-    // ----------------------------------------------------
-    if (!ehDono && cargo.position >= message.member.roles.highest.position) {
-      return responderTemporario(
-        message,
-        "❌ Não podes atribuir/remover a outra pessoa um cargo igual ou superior ao teu cargo mais alto."
-      );
-    }
-
-    // ----------------------------------------------------
     // Hierarquia por HIERARQUIA_CARGOS: não podes executar o
     // comando sobre alguém cujo cargo esteja na mesma posição
     // ou acima da tua na lista (ex: posição 1 não pode agir
