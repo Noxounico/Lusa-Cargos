@@ -35,6 +35,8 @@ const HIERARQUIA_CARGOS = [
   "1541476953960489101",
   "1541476956707627088",
   "1541476959295381514",
+  "1541476939108323378",
+  "1541476974328029284",
 ];
 
 // Devolve a posição (índice) mais alta que um membro tem na
