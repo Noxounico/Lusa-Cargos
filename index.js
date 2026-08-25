@@ -17,11 +17,39 @@ const PREFIX = "!";
 // Quantos segundos a resposta do bot fica visível antes de se apagar sozinha
 const SEGUNDOS_ATE_APAGAR_RESPOSTA = 5;
 
-// Nomes dos ÚNICOS cargos autorizados a usar !addcargo / !remcargo
-// (nem que seja para si próprios). Quem não tiver nenhum destes
-// cargos fica automaticamente bloqueado. O dono do servidor está
-// sempre isento desta regra.
-const CARGOS_AUTORIZADOS = ["CEO", "LIDERANÇA", "Diretor Geral", "Coordenador", "Resp.Pastas", "ADM", "Auxiliar", "Moderador",];
+// Hierarquia dos cargos autorizados a usar !addcargo / !remcargo,
+// por ID, do MAIS poderoso (posição 0) para o MENOS poderoso.
+// Só quem tiver um destes cargos pode usar o comando (nem que
+// seja para si próprio). Além disso, ninguém pode executar o
+// comando sobre alguém cujo cargo esteja na mesma posição ou
+// acima na lista (ex: posição 1 não pode agir sobre posição 0).
+// O dono do servidor está sempre isento.
+const HIERARQUIA_CARGOS = [
+  "1521632441645793507",
+  "1521674972911636520",
+  "1541476943894020209",
+  "1541476948725989607",
+  "1541476951544303697",
+  "1541476974328029284",
+  "1541477106880610334",
+  "1541476953960489101",
+  "1541476956707627088",
+  "1541476959295381514",
+];
+
+// Devolve a posição (índice) mais alta que um membro tem na
+// hierarquia acima, ou -1 se não tiver nenhum desses cargos.
+function obterRankAutorizado(member) {
+  let melhorRank = -1;
+  for (const [indice, idCargo] of HIERARQUIA_CARGOS.entries()) {
+    if (member.roles.cache.has(idCargo)) {
+      if (melhorRank === -1 || indice < melhorRank) {
+        melhorRank = indice;
+      }
+    }
+  }
+  return melhorRank;
+}
 
 const client = new Client({
   intents: [
@@ -140,15 +168,13 @@ client.on("messageCreate", async (message) => {
   message.delete().catch(() => {});
 
   // --------------------------------------------------------
-  // Só quem tiver um dos CARGOS_AUTORIZADOS pode usar o
-  // comando. O dono do servidor está sempre isento.
+  // Só quem tiver um cargo presente na HIERARQUIA_CARGOS pode
+  // usar o comando. O dono do servidor está sempre isento.
   // --------------------------------------------------------
   const ehDonoServidor = message.guild.ownerId === message.author.id;
-  const temCargoAutorizado = message.member.roles.cache.some((r) =>
-    CARGOS_AUTORIZADOS.some((nome) => nome.toLowerCase() === r.name.toLowerCase())
-  );
+  const rankExecutor = obterRankAutorizado(message.member);
 
-  if (!ehDonoServidor && !temCargoAutorizado) {
+  if (!ehDonoServidor && rankExecutor === -1) {
     return responderTemporario(
       message,
       "❌ O teu cargo não tem permissão para usar este comando."
@@ -214,6 +240,20 @@ client.on("messageCreate", async (message) => {
       return responderTemporario(
         message,
         "❌ Não podes atribuir/remover a outra pessoa um cargo igual ou superior ao teu cargo mais alto."
+      );
+    }
+
+    // ----------------------------------------------------
+    // Hierarquia por HIERARQUIA_CARGOS: não podes executar o
+    // comando sobre alguém cujo cargo esteja na mesma posição
+    // ou acima da tua na lista (ex: posição 1 não pode agir
+    // sobre alguém com o cargo da posição 0).
+    // ----------------------------------------------------
+    const rankAlvo = obterRankAutorizado(mencaoUtilizador);
+    if (!ehDono && rankAlvo !== -1 && rankAlvo <= rankExecutor) {
+      return responderTemporario(
+        message,
+        "❌ Não podes executar este comando sobre alguém com um cargo igual ou superior ao teu."
       );
     }
 
