@@ -224,7 +224,11 @@ client.on("messageCreate", async (message) => {
 
   // Determinar o alvo (utilizador que vai receber/perder o cargo)
   let membroAlvo = message.member;
-  const mencaoUtilizador = message.mentions.members?.first();
+  const mencaoBruta = message.mentions.members?.first();
+  // Se a pessoa se mencionar a si própria, conta como auto-atribuição,
+  // não como "dar cargo a outra pessoa".
+  const mencaoUtilizador =
+    mencaoBruta && mencaoBruta.id !== message.author.id ? mencaoBruta : null;
   const ehDono = message.guild.ownerId === message.author.id;
 
   if (mencaoUtilizador) {
