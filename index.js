@@ -35,8 +35,6 @@ const HIERARQUIA_CARGOS = [
   "1541476953960489101",
   "1541476956707627088",
   "1541476959295381514",
-  "1541476939108323378",
-  "1541476974328029284",
 ];
 
 // Devolve a posição (índice) mais alta que um membro tem na
@@ -163,6 +161,93 @@ client.on("messageCreate", async (message) => {
 
   const args = message.content.slice(PREFIX.length).trim().split(/\s+/);
   const comando = args.shift().toLowerCase();
+
+  // ============================================================
+  // Comando especial: !addcargotodos @Cargo
+  // Dá o cargo indicado a TODOS os membros do servidor.
+  // Só o cargo de topo da hierarquia (posição 0) ou o dono do
+  // servidor podem usar isto, por ser uma ação em massa.
+  // ============================================================
+  if (comando === "addcargotodos") {
+    message.delete().catch(() => {});
+
+    const ehDonoServidor = message.guild.ownerId === message.author.id;
+    const rankExecutor = obterRankAutorizado(message.member);
+
+    if (!ehDonoServidor && rankExecutor !== 0) {
+      return responderTemporario(
+        message,
+        "❌ Só o cargo de topo da hierarquia (ou o dono do servidor) pode usar este comando."
+      );
+    }
+
+    const botMember = message.guild.members.me;
+    if (!botMember.permissions.has(PermissionsBitField.Flags.ManageRoles)) {
+      return responderTemporario(
+        message,
+        "❌ Não tenho permissão de **Gerir Cargos** neste servidor."
+      );
+    }
+
+    if (args.length === 0) {
+      return responderTemporario(
+        message,
+        `⚠️ Uso correto: \`${PREFIX}addcargotodos @Cargo\``
+      );
+    }
+
+    const cargo = encontrarCargo(message.guild, args[0]);
+    if (!cargo) {
+      return responderTemporario(
+        message,
+        "❌ Não encontrei esse cargo. Verifica o nome ou menciona-o com @."
+      );
+    }
+
+    if (cargo.position >= botMember.roles.highest.position) {
+      return responderTemporario(
+        message,
+        "❌ Esse cargo está acima (ou igual) da minha posição na hierarquia. Move o meu cargo para cima nas Definições do Servidor."
+      );
+    }
+
+    const avisoInicio = await message.channel.send(
+      `⏳ A adicionar o cargo **${cargo.name}** a todos os membros... isto pode demorar um pouco.`
+    );
+
+    try {
+      const membros = await message.guild.members.fetch();
+      let adicionados = 0;
+      let jaTinham = 0;
+      let falhas = 0;
+
+      for (const membro of membros.values()) {
+        if (membro.user.bot) continue; // ignora bots
+        if (membro.roles.cache.has(cargo.id)) {
+          jaTinham++;
+          continue;
+        }
+        try {
+          await membro.roles.add(cargo);
+          adicionados++;
+        } catch {
+          falhas++;
+        }
+        // Pequena pausa para não bater no limite de pedidos do Discord
+        await new Promise((resolve) => setTimeout(resolve, 300));
+      }
+
+      await avisoInicio.delete().catch(() => {});
+      return responderEmbedTemporario(
+        message,
+        `✅ Cargo **${cargo.name}** aplicado em massa.\n\n➕ Adicionados: **${adicionados}**\nℹ️ Já tinham: **${jaTinham}**\n❌ Falhas: **${falhas}**`
+      );
+    } catch (erro) {
+      console.error(erro);
+      await avisoInicio.delete().catch(() => {});
+      return responderTemporario(message, "❌ Ocorreu um erro ao aplicar o cargo em massa.");
+    }
+  }
 
   if (comando !== "addcargo" && comando !== "remcargo") return;
 
