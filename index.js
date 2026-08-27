@@ -37,6 +37,21 @@ const HIERARQUIA_CARGOS = [
   "1541476959295381514",
 ];
 
+// Nome exato dos cargos usados pelo !classificarmembros.
+// Ajusta se os nomes reais no servidor forem diferentes.
+const NOME_CARGO_CIDADAO = "Cidadão";
+const NOME_CARGO_VISITANTE = "Visitante";
+
+// Um nome/nickname é considerado "de Cidadão" se:
+// - contiver a palavra "PRÉ" (ou "PRE"), OU
+// - terminar em números (ex: "... | 1579")
+function nomeEhDeCidadao(nome) {
+  if (!nome) return false;
+  const temPre = /\bpr[eé]\b/i.test(nome);
+  const terminaEmNumero = /\d+\s*$/.test(nome.trim());
+  return temPre || terminaEmNumero;
+}
+
 // Devolve a posição (índice) mais alta que um membro tem na
 // hierarquia acima, ou -1 se não tiver nenhum desses cargos.
 function obterRankAutorizado(member) {
@@ -246,6 +261,113 @@ client.on("messageCreate", async (message) => {
       console.error(erro);
       await avisoInicio.delete().catch(() => {});
       return responderTemporario(message, "❌ Ocorreu um erro ao aplicar o cargo em massa.");
+    }
+  }
+
+  // ============================================================
+  // Comando especial: !classificarmembros
+  // Analisa o nickname/nome de todos os membros:
+  // - Se tiver "PRÉ"/"PRE" ou terminar em números -> Cidadão
+  // - Caso contrário -> Visitante
+  // Só o cargo de topo da hierarquia (posição 0) ou o dono do
+  // servidor podem usar isto, por ser uma ação em massa.
+  // ============================================================
+  if (comando === "classificarmembros") {
+    message.delete().catch(() => {});
+
+    const ehDonoServidor = message.guild.ownerId === message.author.id;
+    const rankExecutor = obterRankAutorizado(message.member);
+
+    if (!ehDonoServidor && rankExecutor !== 0) {
+      return responderTemporario(
+        message,
+        "❌ Só o cargo de topo da hierarquia (ou o dono do servidor) pode usar este comando."
+      );
+    }
+
+    const botMember = message.guild.members.me;
+    if (!botMember.permissions.has(PermissionsBitField.Flags.ManageRoles)) {
+      return responderTemporario(
+        message,
+        "❌ Não tenho permissão de **Gerir Cargos** neste servidor."
+      );
+    }
+
+    const cargoCidadao = message.guild.roles.cache.find(
+      (r) => r.name.toLowerCase() === NOME_CARGO_CIDADAO.toLowerCase()
+    );
+    const cargoVisitante = message.guild.roles.cache.find(
+      (r) => r.name.toLowerCase() === NOME_CARGO_VISITANTE.toLowerCase()
+    );
+
+    if (!cargoCidadao || !cargoVisitante) {
+      return responderTemporario(
+        message,
+        `❌ Não encontrei o cargo **${NOME_CARGO_CIDADAO}** e/ou **${NOME_CARGO_VISITANTE}**. Confirma os nomes exatos no servidor.`
+      );
+    }
+
+    if (
+      cargoCidadao.position >= botMember.roles.highest.position ||
+      cargoVisitante.position >= botMember.roles.highest.position
+    ) {
+      return responderTemporario(
+        message,
+        "❌ Um dos cargos está acima (ou igual) da minha posição na hierarquia. Move o meu cargo para cima nas Definições do Servidor."
+      );
+    }
+
+    const avisoInicio = await message.channel.send(
+      "⏳ A analisar e classificar todos os membros... isto pode demorar um pouco."
+    );
+
+    try {
+      const membros = await message.guild.members.fetch();
+      let marcadosCidadao = 0;
+      let marcadosVisitante = 0;
+      let falhas = 0;
+
+      for (const membro of membros.values()) {
+        if (membro.user.bot) continue; // ignora bots
+
+        const nome = membro.nickname || membro.user.username;
+        const ehCidadao = nomeEhDeCidadao(nome);
+
+        try {
+          if (ehCidadao) {
+            if (!membro.roles.cache.has(cargoCidadao.id)) {
+              await membro.roles.add(cargoCidadao);
+            }
+            if (membro.roles.cache.has(cargoVisitante.id)) {
+              await membro.roles.remove(cargoVisitante);
+            }
+            marcadosCidadao++;
+          } else {
+            if (!membro.roles.cache.has(cargoVisitante.id)) {
+              await membro.roles.add(cargoVisitante);
+            }
+            if (membro.roles.cache.has(cargoCidadao.id)) {
+              await membro.roles.remove(cargoCidadao);
+            }
+            marcadosVisitante++;
+          }
+        } catch {
+          falhas++;
+        }
+
+        // Pequena pausa para não bater no limite de pedidos do Discord
+        await new Promise((resolve) => setTimeout(resolve, 350));
+      }
+
+      await avisoInicio.delete().catch(() => {});
+      return responderEmbedTemporario(
+        message,
+        `✅ Classificação concluída.\n\n🏙️ **${NOME_CARGO_CIDADAO}**: ${marcadosCidadao}\n👤 **${NOME_CARGO_VISITANTE}**: ${marcadosVisitante}\n❌ Falhas: ${falhas}`
+      );
+    } catch (erro) {
+      console.error(erro);
+      await avisoInicio.delete().catch(() => {});
+      return responderTemporario(message, "❌ Ocorreu um erro ao classificar os membros.");
     }
   }
 
