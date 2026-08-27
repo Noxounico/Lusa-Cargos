@@ -433,12 +433,27 @@ client.on("messageCreate", async (message) => {
 
   // Determinar o alvo (utilizador que vai receber/perder o cargo)
   let membroAlvo = message.member;
-  const mencaoBruta = message.mentions.members?.first();
-  // Se a pessoa se mencionar a si própria, conta como auto-atribuição,
-  // não como "dar cargo a outra pessoa".
+  let mencaoBruta = message.mentions.members?.first();
+
+  // Se não houver menção (@), tenta interpretar args[1] como um
+  // ID de utilizador puro (ex: !addcargo Cidadão 123456789012345678)
+  if (!mencaoBruta && args[1] && /^\d{15,25}$/.test(args[1])) {
+    mencaoBruta = await message.guild.members.fetch(args[1]).catch(() => null);
+  }
+
+  // Se a pessoa se mencionar/indicar a si própria, conta como
+  // auto-atribuição, não como "dar cargo a outra pessoa".
   const mencaoUtilizador =
     mencaoBruta && mencaoBruta.id !== message.author.id ? mencaoBruta : null;
   const ehDono = message.guild.ownerId === message.author.id;
+
+  // Se args[1] parecia um ID mas não encontrámos ninguém, avisa
+  if (!mencaoBruta && args[1] && /^\d{15,25}$/.test(args[1])) {
+    return responderTemporario(
+      message,
+      "❌ Não encontrei nenhum utilizador com esse ID neste servidor."
+    );
+  }
 
   if (mencaoUtilizador) {
     // ----------------------------------------------------
