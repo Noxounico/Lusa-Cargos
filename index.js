@@ -17,6 +17,9 @@ const PREFIX = "!";
 // Quantos segundos a resposta do bot fica visível antes de se apagar sozinha
 const SEGUNDOS_ATE_APAGAR_RESPOSTA = 5;
 
+// Cargo dado automaticamente a quem entra no servidor (sem whitelist)
+const ID_CARGO_SEM_WL = "1542869859036307506";
+
 // Hierarquia dos cargos autorizados a usar !addcargo / !remcargo,
 // por ID, do MAIS poderoso (posição 0) para o MENOS poderoso.
 // Só quem tiver um destes cargos pode usar o comando (nem que
@@ -67,6 +70,11 @@ function obterRankAutorizado(member) {
   return melhorRank;
 }
 
+async function removerCargoSemWl(membro) {
+  if (!membro.roles.cache.has(ID_CARGO_SEM_WL)) return;
+  await membro.roles.remove(ID_CARGO_SEM_WL);
+}
+
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -79,6 +87,34 @@ const client = new Client({
 
 client.once("ready", () => {
   console.log(`✅ Bot ligado como ${client.user.tag}`);
+});
+
+// Quem entra no servidor recebe o cargo de sem whitelist.
+client.on("guildMemberAdd", async (member) => {
+  if (member.user.bot) return;
+
+  const cargo = member.guild.roles.cache.get(ID_CARGO_SEM_WL);
+  if (!cargo) {
+    console.error(`Cargo sem WL (${ID_CARGO_SEM_WL}) não encontrado.`);
+    return;
+  }
+
+  const botMember = member.guild.members.me;
+  if (!botMember?.permissions.has(PermissionsBitField.Flags.ManageRoles)) {
+    console.error("Sem permissão Gerir Cargos para atribuir o cargo sem WL.");
+    return;
+  }
+
+  if (cargo.position >= botMember.roles.highest.position) {
+    console.error("O cargo sem WL está acima (ou igual) da posição do bot.");
+    return;
+  }
+
+  try {
+    await member.roles.add(cargo);
+  } catch (erro) {
+    console.error("Erro ao atribuir o cargo sem WL a um novo membro:", erro);
+  }
 });
 
 // ------------------------------------------------------------
@@ -269,6 +305,7 @@ client.on("messageCreate", async (message) => {
   // Comando especial: !classificarmembros
   // Analisa o nickname/nome de todos os membros:
   // - Se tiver "PRÉ"/"PRE" ou terminar em números -> Cidadão
+  //   (e remove o cargo de sem WL)
   // - Caso contrário -> Visitante
   // Só o cargo de topo da hierarquia (posição 0) ou o dono do
   // servidor podem usar isto, por ser uma ação em massa.
@@ -342,6 +379,7 @@ client.on("messageCreate", async (message) => {
             if (membro.roles.cache.has(cargoVisitante.id)) {
               await membro.roles.remove(cargoVisitante);
             }
+            await removerCargoSemWl(membro);
             marcadosCidadao++;
           } else {
             if (!membro.roles.cache.has(cargoVisitante.id)) {
@@ -484,6 +522,9 @@ client.on("messageCreate", async (message) => {
         );
       }
       await membroAlvo.roles.add(cargo);
+      if (cargo.name.toLowerCase() === NOME_CARGO_CIDADAO.toLowerCase()) {
+        await removerCargoSemWl(membroAlvo).catch(() => {});
+      }
       return responderEmbedTemporario(
         message,
         `✅ Cargo **${cargo.name}** adicionado a ${membroAlvo}.\n\n⚠️ Agora você tem mais responsabilidade dentro do servidor — use o cargo com respeito e siga as regras.`
