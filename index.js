@@ -17,9 +17,6 @@ const PREFIX = "!";
 // Quantos segundos a resposta do bot fica visível antes de se apagar sozinha
 const SEGUNDOS_ATE_APAGAR_RESPOSTA = 5;
 
-// Cargo dado automaticamente a quem entra no servidor (sem whitelist)
-const ID_CARGO_SEM_WL = "1542869859036307506";
-
 // Hierarquia dos cargos autorizados a usar !addcargo / !remcargo,
 // por ID, do MAIS poderoso (posição 0) para o MENOS poderoso.
 // Só quem tiver um destes cargos pode usar o comando (nem que
